@@ -1,0 +1,3 @@
+-keep class com.swipeout.** { *; }
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
