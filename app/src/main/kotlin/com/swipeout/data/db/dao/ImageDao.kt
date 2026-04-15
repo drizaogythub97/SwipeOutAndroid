@@ -46,18 +46,23 @@ interface ImageDao {
         @ColumnInfo(name = "bucket_id")     val bucketId: Long,
         @ColumnInfo(name = "bucket_name")   val bucketName: String,
         @ColumnInfo(name = "pending_count") val pendingCount: Int,
+        // Prefers an image over a video for the cover thumbnail
+        @ColumnInfo(name = "cover_uri")     val coverUri: String,
     )
 
     /**
-     * Returns albums that have at least one PENDING image.
-     * Uses bucket_id index — O(log n). Result is a small list (typically 10–30 albums).
-     * Only active when HomeScreen album filter is open.
+     * Returns albums that have at least one PENDING image, with a cover URI.
+     * Cover prefers images over videos. Uses bucket_id index — O(log n).
      */
     @Query("""
         SELECT
             bucket_id,
             bucket_name,
-            SUM(CASE WHEN decision = 'PENDING' THEN 1 ELSE 0 END) AS pending_count
+            SUM(CASE WHEN decision = 'PENDING' THEN 1 ELSE 0 END) AS pending_count,
+            COALESCE(
+                MIN(CASE WHEN mime_type LIKE 'image/%' AND decision = 'PENDING' THEN content_uri END),
+                MIN(CASE WHEN decision = 'PENDING' THEN content_uri END)
+            ) AS cover_uri
         FROM images
         WHERE bucket_name != ''
         GROUP BY bucket_id, bucket_name
@@ -66,14 +71,19 @@ interface ImageDao {
     """)
     fun getAlbumsWithPending(): Flow<List<AlbumInfo>>
 
-    /**
-     * Returns the month keys that have PENDING images in a specific album.
-     * Used to filter the HomeScreen month list — only runs when album filter is active.
-     */
-    @Query("SELECT DISTINCT month_key FROM images WHERE bucket_id = :bucketId AND decision = 'PENDING'")
-    fun getMonthKeysForAlbum(bucketId: Long): Flow<List<String>>
+    /** Pending images for a specific album, ordered by date. */
+    @Query("SELECT * FROM images WHERE bucket_id = :bucketId AND decision = 'PENDING' ORDER BY date_added ASC")
+    fun getPendingImagesByAlbum(bucketId: Long): Flow<List<ImageEntity>>
 
-    // ── Backfill support (migration 2→3) ─────────────────────────────────────
+    /** Total image count for a specific album (all decisions). */
+    @Query("SELECT COUNT(*) FROM images WHERE bucket_id = :bucketId")
+    fun getTotalCountByAlbum(bucketId: Long): Flow<Int>
+
+    /** Images for a specific album filtered by decision — used in AlbumReview. */
+    @Query("SELECT * FROM images WHERE bucket_id = :bucketId AND decision = :decision ORDER BY date_added ASC")
+    suspend fun getByDecisionAndAlbum(bucketId: Long, decision: String): List<ImageEntity>
+
+    // ── Backfill support (migration 2→3 — runs once, then never again) ──────
 
     /** Returns IDs of records that still need bucket info populated. */
     @Query("SELECT id FROM images WHERE bucket_id = 0")

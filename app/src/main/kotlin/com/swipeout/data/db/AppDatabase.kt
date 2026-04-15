@@ -37,11 +37,19 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
 
 val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(database: SupportSQLiteDatabase) {
-        // Add album (bucket) columns — DEFAULT 0/'': existing records will be backfilled
-        // on next sync() via MediaStoreSync.backfillBucketInfo()
-        database.execSQL("ALTER TABLE images ADD COLUMN bucket_id INTEGER NOT NULL DEFAULT 0")
-        database.execSQL("ALTER TABLE images ADD COLUMN bucket_name TEXT NOT NULL DEFAULT ''")
-        // Index for O(log n) album filter queries
+        // Check existing columns before adding — prevents crash if migration runs twice
+        val cursor = database.query("PRAGMA table_info(images)")
+        val existingCols = mutableSetOf<String>()
+        val nameIdx = cursor.getColumnIndex("name")
+        while (cursor.moveToNext()) existingCols += cursor.getString(nameIdx)
+        cursor.close()
+
+        if ("bucket_id" !in existingCols)
+            database.execSQL("ALTER TABLE images ADD COLUMN bucket_id INTEGER NOT NULL DEFAULT 0")
+        if ("bucket_name" !in existingCols)
+            database.execSQL("ALTER TABLE images ADD COLUMN bucket_name TEXT NOT NULL DEFAULT ''")
+
+        // CREATE INDEX IF NOT EXISTS is already idempotent
         database.execSQL("CREATE INDEX IF NOT EXISTS index_images_bucket_id ON images(bucket_id)")
     }
 }

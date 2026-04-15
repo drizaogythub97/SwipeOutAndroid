@@ -54,7 +54,7 @@ fun SettingsScreen(
                 Text("‹", color = TextPrimary, fontSize = 28.sp)
             }
             Text(
-                "Preferências",
+                strings.settingsTitle,
                 color      = TextPrimary,
                 fontSize   = 17.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -73,7 +73,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(4.dp))
 
             // ── Language section ──────────────────────────────────────────────
-            SectionHeader(title = "Idioma / Language")
+            SectionHeader(title = "Idioma / Language")  // bilingual by design
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -123,14 +123,14 @@ fun SettingsScreen(
                 }
             }
             Text(
-                text     = "A mudança de idioma é aplicada imediatamente em toda a interface.",
+                text     = strings.settingsLangNote,
                 color    = TextMuted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 4.dp),
             )
 
             // ── Stats — últimos 30 dias ────────────────────────────────────────
-            SectionHeader(title = "Estatísticas — últimos 30 dias")
+            SectionHeader(title = strings.settingsStats30Title)
             Row(
                 modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -138,19 +138,19 @@ fun SettingsScreen(
                 StatCard(
                     emoji    = "🗑",
                     value    = "${stats30.filesDeleted}",
-                    label    = "arquivos apagados",
+                    label    = strings.settingsFilesDeleted,
                     modifier = Modifier.weight(1f),
                 )
                 StatCard(
                     emoji    = "✨",
                     value    = formatBytes(stats30.bytesFreed),
-                    label    = "memória limpa",
+                    label    = strings.settingsStorageFreed,
                     modifier = Modifier.weight(1f),
                 )
             }
 
             // ── Total geral ────────────────────────────────────────────────────
-            SectionHeader(title = "Total geral")
+            SectionHeader(title = strings.settingsTotalTitle)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -171,7 +171,7 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
-                            text     = "liberados desde o início",
+                            text     = strings.settingsFreedSinceStart,
                             color    = TextSecondary,
                             fontSize = 13.sp,
                         )

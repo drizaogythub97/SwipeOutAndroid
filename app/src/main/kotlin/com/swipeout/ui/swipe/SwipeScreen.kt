@@ -31,11 +31,12 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.swipeout.data.db.entity.ImageEntity
 import com.swipeout.ui.common.VideoThumbnail
+import com.swipeout.ui.strings.LocalStrings
 import com.swipeout.ui.theme.*
 
 @Composable
 fun SwipeScreen(
-    monthKey: String,
+    title: String,
     onBack: () -> Unit,
     onReview: () -> Unit,
     vm: SwipeViewModel = hiltViewModel(),
@@ -46,6 +47,7 @@ fun SwipeScreen(
     val lastSwipe  by vm.lastSwipe.collectAsStateWithLifecycle()
     val canUndo    by vm.canUndo.collectAsStateWithLifecycle()
     val context    = LocalContext.current
+    val strings    = LocalStrings.current
     val density    = LocalDensity.current
     val screenWidthPx = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
 
@@ -94,7 +96,7 @@ fun SwipeScreen(
                 Text("‹", color = TextPrimary, fontSize = 28.sp, lineHeight = 32.sp)
             }
             Text(
-                text       = monthKey.toMonthTitle(),
+                text       = title,
                 color      = TextPrimary,
                 fontSize   = 16.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -172,7 +174,7 @@ fun SwipeScreen(
                 enabled = canUndo,
             ) {
                 Text(
-                    "↩  Desfazer",
+                    "↩  ${strings.undo}",
                     color      = TextPrimary.copy(alpha = 0.75f),
                     fontSize   = 16.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -273,13 +275,3 @@ private fun RoundActionButton(
     }
 }
 
-private fun String.toMonthTitle(): String {
-    val parts = split("-")
-    if (parts.size != 2) return this
-    val monthNames = listOf(
-        "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
-        "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
-    )
-    val month = parts[1].toIntOrNull() ?: return this
-    return "${monthNames.getOrElse(month - 1) { this }} ${parts[0]}"
-}

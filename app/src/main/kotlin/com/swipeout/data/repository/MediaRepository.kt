@@ -40,8 +40,71 @@ class MediaRepository @Inject constructor(
     fun getAlbums(): Flow<List<ImageDao.AlbumInfo>> =
         imageDao.getAlbumsWithPending()
 
-    fun getMonthKeysForAlbum(bucketId: Long): Flow<List<String>> =
-        imageDao.getMonthKeysForAlbum(bucketId)
+    // ── Album-based swipe/review ──────────────────────────────────────────────
+
+    fun getPendingImagesByAlbum(bucketId: Long): Flow<List<ImageEntity>> =
+        imageDao.getPendingImagesByAlbum(bucketId)
+
+    fun getTotalCountByAlbum(bucketId: Long): Flow<Int> =
+        imageDao.getTotalCountByAlbum(bucketId)
+
+    suspend fun getDeletedImagesByAlbum(bucketId: Long)    = imageDao.getByDecisionAndAlbum(bucketId, ImageEntity.DELETE)
+    suspend fun getKeptImagesByAlbum(bucketId: Long)       = imageDao.getByDecisionAndAlbum(bucketId, ImageEntity.KEEP)
+    suspend fun getBookmarkedImagesByAlbum(bucketId: Long) = imageDao.getByDecisionAndAlbum(bucketId, ImageEntity.BOOKMARK)
+
+    suspend fun buildDeleteRequestForAlbum(activity: Activity, bucketId: Long): IntentSender? =
+        withContext(Dispatchers.IO) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return@withContext null
+            val items = imageDao.getByDecisionAndAlbum(bucketId, ImageEntity.DELETE)
+            if (items.isEmpty()) return@withContext null
+            val uris = items.map { item ->
+                if (item.mimeType.startsWith("video/"))
+                    ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item.id)
+                else
+                    ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, item.id)
+            }
+            MediaStore.createDeleteRequest(activity.contentResolver, uris).intentSender
+        }
+
+    /**
+     * Confirms deletion for an album review session.
+     * Unlike [onDeleteConfirmed], does NOT call [markMonthCompleted] — months become
+     * complete automatically via rebuildMenus() when their pending count reaches zero.
+     */
+    suspend fun onAlbumDeleteConfirmed(bucketId: Long) = withContext(Dispatchers.IO) {
+        val items = imageDao.getByDecisionAndAlbum(bucketId, ImageEntity.DELETE)
+        val bytesFreed = items.sumOf { it.sizeBytes }
+        imageDao.deleteByIds(items.map { it.id })
+        userPrefs.addBytesFreed(bytesFreed)
+        deletionEventDao.insert(DeletionEventEntity(
+            timestampMs = System.currentTimeMillis(),
+            fileCount   = items.size,
+            bytesFreed  = bytesFreed,
+        ))
+        mediaStoreSync.sync()
+    }
+
+    suspend fun deleteAlbumDirectly(activity: Activity, bucketId: Long) = withContext(Dispatchers.IO) {
+        val items = imageDao.getByDecisionAndAlbum(bucketId, ImageEntity.DELETE)
+        val bytesFreed = items.sumOf { it.sizeBytes }
+        for (item in items) {
+            runCatching {
+                val uri = if (item.mimeType.startsWith("video/"))
+                    ContentUris.withAppendedId(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, item.id)
+                else
+                    ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, item.id)
+                activity.contentResolver.delete(uri, null, null)
+            }
+        }
+        imageDao.deleteByIds(items.map { it.id })
+        userPrefs.addBytesFreed(bytesFreed)
+        deletionEventDao.insert(DeletionEventEntity(
+            timestampMs = System.currentTimeMillis(),
+            fileCount   = items.size,
+            bytesFreed  = bytesFreed,
+        ))
+        mediaStoreSync.sync()
+    }
 
     suspend fun swipe(imageId: Long, decision: String) = withContext(Dispatchers.IO) {
         imageDao.updateDecision(imageId, decision)

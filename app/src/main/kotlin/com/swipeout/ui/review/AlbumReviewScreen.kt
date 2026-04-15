@@ -33,12 +33,16 @@ import com.swipeout.ui.strings.LocalStrings
 import com.swipeout.ui.strings.formatBytes
 import com.swipeout.ui.theme.*
 
+/**
+ * Review screen for the album-based swipe flow.
+ * Visually identical to [ReviewScreen]; backed by [AlbumReviewViewModel] which
+ * skips markMonthCompleted — months update automatically via sync/rebuildMenus.
+ */
 @Composable
-fun ReviewScreen(
-    monthKey: String,
+fun AlbumReviewScreen(
     onBack: () -> Unit,
     onDone: () -> Unit,
-    vm: ReviewViewModel = hiltViewModel(),
+    vm: AlbumReviewViewModel = hiltViewModel(),
 ) {
     val state   = vm.state.collectAsStateWithLifecycle().value
     val strings = LocalStrings.current
@@ -76,7 +80,7 @@ fun ReviewScreen(
                 Text("‹", color = TextPrimary, fontSize = 28.sp)
             }
             Text(
-                strings.reviewChoices,
+                vm.albumName.ifBlank { strings.reviewChoices },
                 color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f).wrapContentWidth(Alignment.CenterHorizontally),
             )
@@ -103,7 +107,6 @@ fun ReviewScreen(
             )
         }
 
-        // Scrollable photo sections — manual grid to avoid LazyVerticalGrid/verticalScroll conflict
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -139,7 +142,7 @@ fun ReviewScreen(
             Spacer(Modifier.height(80.dp))
         }
 
-        // Footer — botão sempre ativo
+        // Footer button
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -189,16 +192,11 @@ fun ReviewScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 if (img.isVideo) {
-                    TextureVideoPlayer(
-                        uri      = Uri.parse(img.contentUri),
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                    TextureVideoPlayer(uri = Uri.parse(img.contentUri), modifier = Modifier.fillMaxSize())
                 } else {
                     AsyncImage(
-                        model              = img.contentUri,
-                        contentDescription = null,
-                        contentScale       = ContentScale.Fit,
-                        modifier           = Modifier.fillMaxSize(),
+                        model = img.contentUri, contentDescription = null,
+                        contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize(),
                     )
                 }
                 IconButton(
@@ -220,78 +218,6 @@ fun ReviewScreen(
                             color = TextPrimary, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                         )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun SummaryCard(
-    label: String,
-    count: Int,
-    color: Color,
-    subtitle: String? = null,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(color.copy(alpha = 0.12f))
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("$count", color = TextPrimary, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = TextSecondary, fontSize = 13.sp)
-        if (subtitle != null) {
-            Text(subtitle, color = color, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-        }
-    }
-}
-
-@Composable
-internal fun PhotoSection(
-    title: String,
-    subtitle: String? = null,
-    photos: List<ImageEntity>,
-    border: Color,
-    onTap: (ImageEntity) -> Unit,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, color = TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        if (subtitle != null) {
-            Text(subtitle, color = border, fontSize = 12.sp, fontWeight = FontWeight.Medium)
-        }
-
-        // Grid manual de 3 colunas — evita conflito de scroll com LazyVerticalGrid
-        val rows = (photos.size + 2) / 3
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            repeat(rows) { rowIdx ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    for (colIdx in 0 until 3) {
-                        val photoIdx = rowIdx * 3 + colIdx
-                        if (photoIdx < photos.size) {
-                            val photo = photos[photoIdx]
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(SurfaceHigh)
-                                    .clickable { onTap(photo) },
-                            ) {
-                                MediaThumbnail(
-                                    image    = photo,
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-                        } else {
-                            Spacer(Modifier.weight(1f))
-                        }
                     }
                 }
             }

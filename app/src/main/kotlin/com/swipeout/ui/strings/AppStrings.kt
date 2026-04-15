@@ -18,11 +18,16 @@ data class AppStrings(
     val getStarted: String,
     // Home
     val monthsHeader: String,
+    val albumsHeader: String,
     val noPhotos: String,
     val grantAccess: String,
     val reviewed: String,
     val files: String,
     val totalFreedLabel: String,
+    val filterByAlbum: String,
+    val allMonths: String,
+    // Month names (Jan–Dec)
+    val monthNames: List<String>,
     // Review
     val reviewChoices: String,
     val keep: String,
@@ -34,6 +39,17 @@ data class AppStrings(
     // Swipe
     val monthReviewed: String,
     val checkChoices: String,
+    val videoLabel: String,
+    val undo: String,
+    val pending: String,
+    // Settings
+    val settingsTitle: String,
+    val settingsLangNote: String,
+    val settingsStats30Title: String,
+    val settingsTotalTitle: String,
+    val settingsFilesDeleted: String,
+    val settingsStorageFreed: String,
+    val settingsFreedSinceStart: String,
 )
 
 private val PT = AppStrings(
@@ -48,11 +64,18 @@ private val PT = AppStrings(
     next                 = "Próximo",
     getStarted           = "Começar",
     monthsHeader         = "MESES",
+    albumsHeader         = "ÁLBUNS",
     noPhotos             = "Nenhuma foto encontrada",
     grantAccess          = "Conceda acesso à galeria para começar",
     reviewed             = "Revisado",
     files                = "arquivos",
     totalFreedLabel      = "liberados",
+    filterByAlbum        = "Filtrar por álbum",
+    allMonths            = "Todos os meses",
+    monthNames           = listOf(
+        "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+        "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
+    ),
     reviewChoices        = "Revise suas escolhas",
     keep                 = "Manter",
     delete               = "Deletar",
@@ -62,6 +85,16 @@ private val PT = AppStrings(
     toFree               = "a liberar",
     monthReviewed        = "Mês revisado!",
     checkChoices         = "Confira suas escolhas antes de deletar",
+    videoLabel           = "VÍDEO",
+    undo                 = "Desfazer",
+    pending              = "pendentes",
+    settingsTitle        = "Preferências",
+    settingsLangNote     = "A mudança de idioma é aplicada imediatamente em toda a interface.",
+    settingsStats30Title = "Estatísticas — últimos 30 dias",
+    settingsTotalTitle   = "Total geral",
+    settingsFilesDeleted = "arquivos apagados",
+    settingsStorageFreed = "memória limpa",
+    settingsFreedSinceStart = "liberados desde o início",
 )
 
 private val EN = AppStrings(
@@ -76,11 +109,18 @@ private val EN = AppStrings(
     next                 = "Next",
     getStarted           = "Get Started",
     monthsHeader         = "MONTHS",
+    albumsHeader         = "ALBUMS",
     noPhotos             = "No photos found",
     grantAccess          = "Grant gallery access to get started",
     reviewed             = "Reviewed",
     files                = "files",
     totalFreedLabel      = "freed",
+    filterByAlbum        = "Filter by album",
+    allMonths            = "All months",
+    monthNames           = listOf(
+        "January","February","March","April","May","June",
+        "July","August","September","October","November","December"
+    ),
     reviewChoices        = "Review your choices",
     keep                 = "Keep",
     delete               = "Delete",
@@ -90,6 +130,16 @@ private val EN = AppStrings(
     toFree               = "to free",
     monthReviewed        = "Month reviewed!",
     checkChoices         = "Review your choices before deleting",
+    videoLabel           = "VIDEO",
+    undo                 = "Undo",
+    pending              = "pending",
+    settingsTitle        = "Preferences",
+    settingsLangNote     = "Language change is applied immediately across the interface.",
+    settingsStats30Title = "Statistics — last 30 days",
+    settingsTotalTitle   = "Overall total",
+    settingsFilesDeleted = "files deleted",
+    settingsStorageFreed = "storage freed",
+    settingsFreedSinceStart = "freed since the beginning",
 )
 
 fun resolveStrings(languagePref: String = "auto"): AppStrings {

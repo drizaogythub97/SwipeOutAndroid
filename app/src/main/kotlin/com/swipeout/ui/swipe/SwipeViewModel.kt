@@ -21,30 +21,36 @@ class SwipeViewModel @Inject constructor(
     savedState: SavedStateHandle,
 ) : ViewModel() {
 
-    val monthKey: String = checkNotNull(savedState["monthKey"])
+    // Either monthKey (month mode) or bucketId (album mode) is present — never both.
+    val monthKey: String? = savedState.get<String>("monthKey")
+    val bucketId: Long?   = savedState.get<Long>("bucketId")
+
+    val isAlbumMode: Boolean get() = bucketId != null
 
     // null = Room hasn't responded yet (distinct from "loaded and empty").
     // This prevents isAllReviewed from firing before the first real DB emission.
-    val pendingImages: StateFlow<List<ImageEntity>?> =
-        repo.getPendingImages(monthKey)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val pendingImages: StateFlow<List<ImageEntity>?> = when {
+        monthKey != null -> repo.getPendingImages(monthKey)
+        bucketId != null -> repo.getPendingImagesByAlbum(bucketId)
+        else             -> flowOf(null)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     // Total declared before isAllReviewed — used in combine()
-    val totalCount: StateFlow<Int> =
-        repo.getTotalCount(monthKey)
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    val totalCount: StateFlow<Int> = when {
+        monthKey != null -> repo.getTotalCount(monthKey)
+        bucketId != null -> repo.getTotalCountByAlbum(bucketId)
+        else             -> flowOf(0)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    // True only when: Room has responded (pending != null) AND month has images AND all are reviewed.
+    // True only when: Room has responded (pending != null) AND month/album has images AND all are reviewed.
     val isAllReviewed: StateFlow<Boolean> = combine(pendingImages, totalCount) { pending, total ->
         pending != null && total > 0 && pending.isEmpty()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     // ── Undo ─────────────────────────────────────────────────────────────────
-    // Full history stack — supports unlimited undo back to the first card.
 
     private val _swipeHistory = MutableStateFlow<List<LastSwipe>>(emptyList())
 
-    // Exposes the most recent swipe (top of stack) for returning-card animation.
     val lastSwipe: StateFlow<LastSwipe?> = _swipeHistory
         .map { it.lastOrNull() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -54,7 +60,6 @@ class SwipeViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     fun swipe(imageId: Long, decision: String) {
-        // Capture image synchronously before it leaves pendingImages
         val image = pendingImages.value?.firstOrNull { it.id == imageId }
         if (image != null) {
             _swipeHistory.update { history ->

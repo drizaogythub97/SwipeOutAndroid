@@ -41,16 +41,16 @@ import com.swipeout.ui.theme.*
 @Composable
 fun HomeScreen(
     onMonthClick: (String) -> Unit,
+    onAlbumClick: (bucketId: Long, albumName: String) -> Unit,
     onSettingsClick: () -> Unit,
     vm: HomeViewModel = hiltViewModel(),
 ) {
-    val months           by vm.months.collectAsStateWithLifecycle()
-    val albums           by vm.albums.collectAsStateWithLifecycle()
-    val selectedBucketId by vm.selectedBucketId.collectAsStateWithLifecycle()
-    val isSyncing        by vm.isSyncing.collectAsStateWithLifecycle()
-    val totalBytesFreed  by vm.totalBytesFreed.collectAsStateWithLifecycle()
-    val strings          = LocalStrings.current
-    val context          = LocalContext.current
+    val months          by vm.months.collectAsStateWithLifecycle()
+    val albums          by vm.albums.collectAsStateWithLifecycle()
+    val isSyncing       by vm.isSyncing.collectAsStateWithLifecycle()
+    val totalBytesFreed by vm.totalBytesFreed.collectAsStateWithLifecycle()
+    val strings         = LocalStrings.current
+    val context         = LocalContext.current
 
     val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
@@ -128,19 +128,7 @@ fun HomeScreen(
             }
         }
 
-        // ── Album filter — fixed above the list, only shown when albums exist ─
-        if (albums.size > 1) {
-            AlbumFilterDropdown(
-                albums           = albums,
-                selectedBucketId = selectedBucketId,
-                onSelect         = { vm.selectAlbum(it) },
-                modifier         = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
-            )
-        }
-
-        // ── Month list ────────────────────────────────────────────────────────
+        // ── Main list: MESES + ÁLBUNS ─────────────────────────────────────────
         PullToRefreshBox(
             isRefreshing = isSyncing,
             onRefresh    = { vm.sync() },
@@ -154,7 +142,7 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
-                months.isEmpty() && !isSyncing -> {
+                months.isEmpty() && albums.isEmpty() && !isSyncing -> {
                     EmptyState(strings = strings, modifier = Modifier.fillMaxSize())
                 }
                 else -> {
@@ -163,18 +151,37 @@ fun HomeScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         modifier            = Modifier.fillMaxSize(),
                     ) {
-                        item(key = "header") {
-                            Text(
-                                text          = strings.monthsHeader,
-                                color         = TextMuted,
-                                fontSize      = 11.sp,
-                                fontWeight    = FontWeight.SemiBold,
-                                letterSpacing = 1.sp,
-                                modifier      = Modifier.padding(start = 4.dp, bottom = 4.dp, top = 8.dp),
-                            )
+                        // ── MESES ─────────────────────────────────────────────
+                        if (months.isNotEmpty()) {
+                            item(key = "header_months") {
+                                SectionHeader(
+                                    title    = strings.monthsHeader,
+                                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp, top = 8.dp),
+                                )
+                            }
+                            items(months, key = { "m_${it.key}" }) { menu ->
+                                MonthRow(
+                                    menu    = menu,
+                                    strings = strings,
+                                    onClick = { onMonthClick(menu.key) },
+                                )
+                            }
                         }
-                        items(months, key = { it.key }) { menu ->
-                            MonthRow(menu = menu, strings = strings, onClick = { onMonthClick(menu.key) })
+
+                        // ── ÁLBUNS ────────────────────────────────────────────
+                        if (albums.isNotEmpty()) {
+                            item(key = "header_albums") {
+                                SectionHeader(
+                                    title    = strings.albumsHeader,
+                                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp, top = 16.dp),
+                                )
+                            }
+                            items(albums, key = { "a_${it.bucketId}" }) { album ->
+                                AlbumRow(
+                                    album   = album,
+                                    onClick = { onAlbumClick(album.bucketId, album.bucketName) },
+                                )
+                            }
                         }
                     }
                 }
@@ -184,130 +191,19 @@ fun HomeScreen(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Album filter dropdown
+// Section header
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun AlbumFilterDropdown(
-    albums: List<ImageDao.AlbumInfo>,
-    selectedBucketId: Long?,
-    onSelect: (Long?) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    val selectedAlbum  = albums.find { it.bucketId == selectedBucketId }
-    val isFiltered     = selectedBucketId != null
-    val labelText      = selectedAlbum?.bucketName ?: "Filtrar por álbum"
-    val labelColor     = if (isFiltered) TextPrimary else TextMuted
-
-    Box(modifier = modifier) {
-        // ── Trigger row ───────────────────────────────────────────────────────
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(if (isFiltered) Accent.copy(alpha = 0.15f) else Surface)
-                .clickable { expanded = true }
-                .padding(horizontal = 14.dp, vertical = 11.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment     = Alignment.CenterVertically,
-        ) {
-            Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // Filter icon
-                Text("⊟", color = if (isFiltered) Accent else TextMuted, fontSize = 16.sp)
-                Text(
-                    text       = labelText,
-                    color      = labelColor,
-                    fontSize   = 14.sp,
-                    fontWeight = if (isFiltered) FontWeight.SemiBold else FontWeight.Normal,
-                )
-                if (isFiltered && selectedAlbum != null) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Accent.copy(alpha = 0.2f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        Text(
-                            "${selectedAlbum.pendingCount}",
-                            color = Accent,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                }
-            }
-            Text(
-                text     = if (expanded) "▴" else "▾",
-                color    = TextMuted,
-                fontSize = 12.sp,
-            )
-        }
-
-        // ── Dropdown ──────────────────────────────────────────────────────────
-        DropdownMenu(
-            expanded         = expanded,
-            onDismissRequest = { expanded = false },
-            modifier         = Modifier.background(SurfaceHigh),
-        ) {
-            // "Todos" option
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        "Todos os meses",
-                        color      = if (!isFiltered) TextPrimary else TextSecondary,
-                        fontWeight = if (!isFiltered) FontWeight.SemiBold else FontWeight.Normal,
-                        fontSize   = 14.sp,
-                    )
-                },
-                trailingIcon = {
-                    if (!isFiltered) Text("✓", color = Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                },
-                onClick = {
-                    onSelect(null)
-                    expanded = false
-                },
-            )
-
-            HorizontalDivider(color = Border, thickness = 0.5.dp)
-
-            albums.forEach { album ->
-                val isSelected = album.bucketId == selectedBucketId
-                DropdownMenuItem(
-                    text = {
-                        Row(
-                            verticalAlignment     = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Text(
-                                album.bucketName,
-                                color      = if (isSelected) TextPrimary else TextSecondary,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                fontSize   = 14.sp,
-                                modifier   = Modifier.weight(1f),
-                            )
-                            Text(
-                                "${album.pendingCount}",
-                                color    = TextMuted,
-                                fontSize = 12.sp,
-                            )
-                        }
-                    },
-                    trailingIcon = {
-                        if (isSelected) Text("✓", color = Accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    },
-                    onClick = {
-                        onSelect(album.bucketId)
-                        expanded = false
-                    },
-                )
-            }
-        }
-    }
+private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
+    Text(
+        text          = title,
+        color         = TextMuted,
+        fontSize      = 11.sp,
+        fontWeight    = FontWeight.SemiBold,
+        letterSpacing = 1.sp,
+        modifier      = modifier,
+    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -322,6 +218,16 @@ private fun MonthRow(
 ) {
     val completed = menu.isCompleted
     val progress  = if (menu.totalCount > 0) menu.reviewedCount.toFloat() / menu.totalCount else 0f
+
+    // Format month title from key at display time so it respects the current language.
+    val title = remember(menu.key, strings.monthNames) {
+        val parts = menu.key.split("-")
+        if (parts.size == 2) {
+            val monthIdx  = (parts[1].toIntOrNull() ?: 1) - 1
+            val monthName = strings.monthNames.getOrElse(monthIdx) { parts[1] }
+            "$monthName ${parts[0]}"
+        } else menu.key
+    }
 
     Row(
         modifier = Modifier
@@ -355,7 +261,7 @@ private fun MonthRow(
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    text           = menu.title,
+                    text           = title,
                     color          = if (completed) TextMuted else TextPrimary,
                     fontSize       = 16.sp,
                     fontWeight     = FontWeight.SemiBold,
@@ -376,6 +282,56 @@ private fun MonthRow(
             Text(
                 text     = if (completed) "${strings.reviewed} · ${menu.totalCount} ${strings.files}"
                            else "${menu.reviewedCount} de ${menu.totalCount} ${strings.files}",
+                color    = TextMuted,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+
+        Text("›", color = TextMuted, fontSize = 22.sp)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Album row
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun AlbumRow(
+    album: ImageDao.AlbumInfo,
+    onClick: () -> Unit,
+    strings: AppStrings = LocalStrings.current,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Surface)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        // Cover thumbnail — always available (guaranteed by the DAO query)
+        AsyncImage(
+            model              = album.coverUri,
+            contentDescription = null,
+            contentScale       = ContentScale.Crop,
+            modifier           = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(SurfaceHigh),
+        )
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text       = album.bucketName,
+                color      = TextPrimary,
+                fontSize   = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text     = "${album.pendingCount} ${strings.pending}",
                 color    = TextMuted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 2.dp),

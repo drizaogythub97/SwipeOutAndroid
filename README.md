@@ -25,15 +25,12 @@ O app é **100% offline** e **dark mode only** — sem telemetria, sem conta, se
 
 ## Screenshots
 
-> 📸 *Screenshots e GIFs da UI em breve — app em testes de campo desde abril/2026.*
-
-<!-- Quando tiver a mídia, substitua este bloco:
 <p align="center">
-  <img src="docs/home.png" width="220" />
-  <img src="docs/swipe.png" width="220" />
-  <img src="docs/review.png" width="220" />
+  <img src="assets/Screenshots/1.jpeg" width="220" />
+  <img src="assets/Screenshots/2.jpeg" width="220" />
+  <img src="assets/Screenshots/3.jpeg" width="220" />
+  <img src="assets/Screenshots/4.jpeg" width="220" />
 </p>
--->
 
 ---
 

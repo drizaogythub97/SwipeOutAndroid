@@ -97,9 +97,12 @@ fun VideoThumbnail(uri: Uri, modifier: Modifier = Modifier) {
 /**
  * Player de vídeo completo via TextureView + ExoPlayer.
  * TextureView (não SurfaceView) para funcionar com graphicsLayer alpha/rotation do Compose.
+ *
+ * [snapBackKey] deve ser incrementado pelo pai após cada snap-back (arrasto incompleto).
+ * Isso aciona a reconexão do player à TextureView, desbloqueando o frame congelado.
  */
 @Composable
-fun TextureVideoPlayer(uri: Uri, modifier: Modifier = Modifier) {
+fun TextureVideoPlayer(uri: Uri, snapBackKey: Int = 0, modifier: Modifier = Modifier) {
     val context = LocalContext.current
 
     val player = remember(uri) {
@@ -109,6 +112,19 @@ fun TextureVideoPlayer(uri: Uri, modifier: Modifier = Modifier) {
             p.playWhenReady = true
             p.repeatMode    = ExoPlayer.REPEAT_MODE_ONE
             p.volume        = 1f
+        }
+    }
+
+    // Keeps a reference to the active TextureView so reconnection can target it
+    val currentTv = remember { mutableStateOf<android.view.TextureView?>(null) }
+
+    // After each snap-back, re-attach the TextureView to unfreeze the video frame
+    LaunchedEffect(snapBackKey) {
+        if (snapBackKey > 0) {
+            currentTv.value?.let { tv ->
+                player.clearVideoSurface()
+                player.setVideoTextureView(tv)
+            }
         }
     }
 
@@ -123,10 +139,13 @@ fun TextureVideoPlayer(uri: Uri, modifier: Modifier = Modifier) {
     AndroidView(
         factory = { ctx ->
             android.view.TextureView(ctx).also { tv ->
+                currentTv.value = tv
                 player.setVideoTextureView(tv)
             }
         },
-        update  = { tv -> player.setVideoTextureView(tv) },
+        update = { tv ->
+            currentTv.value = tv
+        },
         modifier = modifier,
     )
 }
