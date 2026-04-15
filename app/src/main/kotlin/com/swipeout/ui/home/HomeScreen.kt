@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -32,6 +34,7 @@ import coil3.compose.AsyncImage
 import com.swipeout.data.db.dao.ImageDao
 import com.swipeout.data.db.entity.MonthlyMenuEntity
 import com.swipeout.ui.common.ProgressRing
+import com.swipeout.ui.common.VideoThumbnail
 import com.swipeout.ui.strings.AppStrings
 import com.swipeout.ui.strings.LocalStrings
 import com.swipeout.ui.strings.formatBytes
@@ -52,8 +55,9 @@ fun HomeScreen(
     val strings         = LocalStrings.current
     val context         = LocalContext.current
 
-    // Tab selection — months is the default
-    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Meses, 1 = Álbuns
+    // rememberSaveable persists through navigation back-stack — tab survives
+    // navigating into album swipe/review and pressing back.
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0 = Meses, 1 = Álbuns
 
     val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
@@ -316,9 +320,12 @@ private fun AlbumRow(
     onClick: () -> Unit,
     strings: AppStrings = LocalStrings.current,
 ) {
+    val reviewed = album.isReviewed
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .alpha(if (reviewed) 0.55f else 1f)
             .clip(RoundedCornerShape(12.dp))
             .background(Surface)
             .clickable(onClick = onClick)
@@ -326,26 +333,60 @@ private fun AlbumRow(
         verticalAlignment     = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Cover thumbnail — always available (guaranteed by the DAO query)
-        AsyncImage(
-            model              = album.coverUri,
-            contentDescription = null,
-            contentScale       = ContentScale.Crop,
-            modifier           = Modifier
-                .size(44.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(SurfaceHigh),
-        )
+        // Cover thumbnail — video-aware
+        if (reviewed) {
+            // Reviewed: show ProgressRing at 100% (same visual language as months)
+            ProgressRing(progress = 1f, isComplete = true, modifier = Modifier.size(40.dp))
+        } else if (album.coverUri.isNotEmpty()) {
+            if (album.coverIsVideo) {
+                VideoThumbnail(
+                    uri      = Uri.parse(album.coverUri),
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                )
+            } else {
+                AsyncImage(
+                    model              = album.coverUri,
+                    contentDescription = null,
+                    contentScale       = ContentScale.Crop,
+                    modifier           = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SurfaceHigh),
+                )
+            }
+        } else {
+            ProgressRing(progress = 0f, isComplete = false, modifier = Modifier.size(40.dp))
+        }
 
         Column(modifier = Modifier.weight(1f)) {
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text           = album.bucketName,
+                    color          = if (reviewed) TextMuted else TextPrimary,
+                    fontSize       = 16.sp,
+                    fontWeight     = FontWeight.SemiBold,
+                    textDecoration = if (reviewed) TextDecoration.LineThrough else TextDecoration.None,
+                )
+                if (reviewed) {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(Keep),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("✓", color = androidx.compose.ui.graphics.Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
             Text(
-                text       = album.bucketName,
-                color      = TextPrimary,
-                fontSize   = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text     = "${album.pendingCount} ${strings.pending}",
+                text     = if (reviewed) "${strings.reviewed} · ${album.totalCount} ${strings.files}"
+                           else "${album.pendingCount} ${strings.pending}",
                 color    = TextMuted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 2.dp),

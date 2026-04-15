@@ -43,30 +43,43 @@ interface ImageDao {
     // ── Album filter ─────────────────────────────────────────────────────────
 
     data class AlbumInfo(
-        @ColumnInfo(name = "bucket_id")     val bucketId: Long,
-        @ColumnInfo(name = "bucket_name")   val bucketName: String,
-        @ColumnInfo(name = "pending_count") val pendingCount: Int,
-        // Prefers an image over a video for the cover thumbnail
-        @ColumnInfo(name = "cover_uri")     val coverUri: String,
-    )
+        @ColumnInfo(name = "bucket_id")      val bucketId: Long,
+        @ColumnInfo(name = "bucket_name")    val bucketName: String,
+        @ColumnInfo(name = "pending_count")  val pendingCount: Int,
+        @ColumnInfo(name = "total_count")    val totalCount: Int,
+        // Cover URI — prefers photo over video; empty string when album has no remaining files
+        @ColumnInfo(name = "cover_uri")      val coverUri: String,
+        // 1 when the best available cover is a video (no photos in album), 0 otherwise
+        @ColumnInfo(name = "cover_is_video") val coverIsVideo: Boolean,
+    ) {
+        /** True when all files have been reviewed (no PENDING) but files still exist in the DB. */
+        val isReviewed: Boolean get() = pendingCount == 0 && totalCount > 0
+    }
 
     /**
-     * Returns albums that have at least one PENDING image, with a cover URI.
-     * Cover prefers images over videos. Uses bucket_id index — O(log n).
+     * Returns ALL albums that still have files in the DB (pending or already reviewed).
+     * Albums disappear only when every file in them is physically deleted.
+     * Cover prefers images over videos; falls back to video-only when no photos exist.
+     * cover_is_video lets the UI choose the right thumbnail composable.
      */
     @Query("""
         SELECT
             bucket_id,
             bucket_name,
-            SUM(CASE WHEN decision = 'PENDING' THEN 1 ELSE 0 END) AS pending_count,
+            SUM(CASE WHEN decision = 'PENDING' THEN 1 ELSE 0 END)  AS pending_count,
+            COUNT(*)                                                 AS total_count,
             COALESCE(
                 MIN(CASE WHEN mime_type LIKE 'image/%' AND decision = 'PENDING' THEN content_uri END),
-                MIN(CASE WHEN decision = 'PENDING' THEN content_uri END)
-            ) AS cover_uri
+                MIN(CASE WHEN mime_type LIKE 'image/%' THEN content_uri END),
+                MIN(content_uri)
+            ) AS cover_uri,
+            CASE WHEN COALESCE(
+                MIN(CASE WHEN mime_type LIKE 'image/%' AND decision = 'PENDING' THEN content_uri END),
+                MIN(CASE WHEN mime_type LIKE 'image/%' THEN content_uri END)
+            ) IS NULL THEN 1 ELSE 0 END AS cover_is_video
         FROM images
         WHERE bucket_name != ''
         GROUP BY bucket_id, bucket_name
-        HAVING pending_count > 0
         ORDER BY bucket_name ASC
     """)
     fun getAlbumsWithPending(): Flow<List<AlbumInfo>>

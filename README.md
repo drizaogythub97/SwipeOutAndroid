@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="96" alt="SwipeOut icon" />
+<img src="assets/icon.png" width="96" alt="SwipeOut icon" />
 
 # SwipeOut
 
@@ -30,6 +30,11 @@ O app é **100% offline** e **dark mode only** — sem telemetria, sem conta, se
   <img src="assets/Screenshots/2.jpeg" width="220" />
   <img src="assets/Screenshots/3.jpeg" width="220" />
   <img src="assets/Screenshots/4.jpeg" width="220" />
+  <img src="assets/Screenshots/5.jpeg" width="220" />
+</p>
+
+<p align="center">
+  <video src="assets/Screenshots/6.mp4" controls width="220"></video>
 </p>
 
 ---
