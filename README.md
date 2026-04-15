@@ -26,15 +26,15 @@ O app é **100% offline** e **dark mode only** — sem telemetria, sem conta, se
 ## Screenshots
 
 <p align="center">
-  <img src="assets/Screenshots/1.jpeg" width="220" />
-  <img src="assets/Screenshots/2.jpeg" width="220" />
-  <img src="assets/Screenshots/3.jpeg" width="220" />
-  <img src="assets/Screenshots/4.jpeg" width="220" />
-  <img src="assets/Screenshots/5.jpeg" width="220" />
+  <img src="assets/Screenshots/1.jpeg" width="180" />
+  <img src="assets/Screenshots/2.jpeg" width="180" />
+  <img src="assets/Screenshots/3.jpeg" width="180" />
+  <img src="assets/Screenshots/4.jpeg" width="180" />
+  <img src="assets/Screenshots/5.jpeg" width="180" />
 </p>
 
 <p align="center">
-  <video src="assets/Screenshots/6.mp4" controls width="220"></video>
+  <a href="assets/Screenshots/6.mp4">▶ Ver demo em vídeo</a>
 </p>
 
 ---
