@@ -52,6 +52,9 @@ fun HomeScreen(
     val strings         = LocalStrings.current
     val context         = LocalContext.current
 
+    // Tab selection — months is the default
+    var selectedTab by remember { mutableIntStateOf(0) } // 0 = Meses, 1 = Álbuns
+
     val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
         arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
     else
@@ -128,7 +131,38 @@ fun HomeScreen(
             }
         }
 
-        // ── Main list: MESES + ÁLBUNS ─────────────────────────────────────────
+        // ── Tab switcher ─────────────────────────────────────────────────────
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 8.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Surface),
+        ) {
+            listOf(strings.monthsHeader, strings.albumsHeader).forEachIndexed { idx, label ->
+                val selected = selectedTab == idx
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (selected) Accent else Surface)
+                        .clickable { selectedTab = idx }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text       = label,
+                        color      = if (selected) androidx.compose.ui.graphics.Color.White else TextMuted,
+                        fontSize   = 13.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        letterSpacing = 0.5.sp,
+                    )
+                }
+            }
+        }
+
+        // ── Content — only the selected tab is rendered ───────────────────────
         PullToRefreshBox(
             isRefreshing = isSyncing,
             onRefresh    = { vm.sync() },
@@ -142,24 +176,17 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
-                months.isEmpty() && albums.isEmpty() && !isSyncing -> {
-                    EmptyState(strings = strings, modifier = Modifier.fillMaxSize())
-                }
-                else -> {
-                    LazyColumn(
-                        contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier            = Modifier.fillMaxSize(),
-                    ) {
-                        // ── MESES ─────────────────────────────────────────────
-                        if (months.isNotEmpty()) {
-                            item(key = "header_months") {
-                                SectionHeader(
-                                    title    = strings.monthsHeader,
-                                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp, top = 8.dp),
-                                )
-                            }
-                            items(months, key = { "m_${it.key}" }) { menu ->
+                selectedTab == 0 -> {
+                    // ── MESES ─────────────────────────────────────────────────
+                    if (months.isEmpty() && !isSyncing) {
+                        EmptyState(strings = strings, modifier = Modifier.fillMaxSize())
+                    } else {
+                        LazyColumn(
+                            contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier            = Modifier.fillMaxSize(),
+                        ) {
+                            items(months, key = { it.key }) { menu ->
                                 MonthRow(
                                     menu    = menu,
                                     strings = strings,
@@ -167,16 +194,19 @@ fun HomeScreen(
                                 )
                             }
                         }
-
-                        // ── ÁLBUNS ────────────────────────────────────────────
-                        if (albums.isNotEmpty()) {
-                            item(key = "header_albums") {
-                                SectionHeader(
-                                    title    = strings.albumsHeader,
-                                    modifier = Modifier.padding(start = 4.dp, bottom = 4.dp, top = 16.dp),
-                                )
-                            }
-                            items(albums, key = { "a_${it.bucketId}" }) { album ->
+                    }
+                }
+                else -> {
+                    // ── ÁLBUNS ────────────────────────────────────────────────
+                    if (albums.isEmpty() && !isSyncing) {
+                        EmptyState(strings = strings, modifier = Modifier.fillMaxSize())
+                    } else {
+                        LazyColumn(
+                            contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier            = Modifier.fillMaxSize(),
+                        ) {
+                            items(albums, key = { it.bucketId }) { album ->
                                 AlbumRow(
                                     album   = album,
                                     onClick = { onAlbumClick(album.bucketId, album.bucketName) },
@@ -188,22 +218,6 @@ fun HomeScreen(
             }
         }
     }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Section header
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun SectionHeader(title: String, modifier: Modifier = Modifier) {
-    Text(
-        text          = title,
-        color         = TextMuted,
-        fontSize      = 11.sp,
-        fontWeight    = FontWeight.SemiBold,
-        letterSpacing = 1.sp,
-        modifier      = modifier,
-    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
