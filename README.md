@@ -34,7 +34,8 @@ O app é **100% offline** e **dark mode only** — sem telemetria, sem conta, se
 </p>
 
 <p align="center">
-  <a href="assets/Screenshots/6.mp4">▶ Ver demo em vídeo</a>
+  <img src="assets/Screenshots/7.jpeg" width="180" />
+  <video src="https://github.com/user-attachments/assets/e931b465-49e6-4a89-9fec-3c542eb6056c" width="180" controls></video>
 </p>
 
 ---
