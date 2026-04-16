@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+enum class AlbumSortOrder { ALPHA, MOST_FILES, LEAST_FILES }
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repo: MediaRepository,
@@ -20,14 +22,25 @@ class HomeViewModel @Inject constructor(
     val months: StateFlow<List<MonthlyMenuEntity>> = repo.months
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
-    val albums: StateFlow<List<ImageDao.AlbumInfo>> = repo.getAlbums()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    private val _albumSort = MutableStateFlow(AlbumSortOrder.ALPHA)
+    val albumSort: StateFlow<AlbumSortOrder> = _albumSort
+
+    val albums: StateFlow<List<ImageDao.AlbumInfo>> =
+        combine(repo.getAlbums(), _albumSort) { list, sort ->
+            when (sort) {
+                AlbumSortOrder.ALPHA       -> list
+                AlbumSortOrder.MOST_FILES  -> list.sortedByDescending { it.totalCount }
+                AlbumSortOrder.LEAST_FILES -> list.sortedBy { it.totalCount }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val totalBytesFreed: StateFlow<Long> = userPrefs.totalBytesFreed
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing
+
+    fun setAlbumSort(order: AlbumSortOrder) { _albumSort.value = order }
 
     fun sync() {
         if (_isSyncing.value) return

@@ -18,3 +18,4 @@ app/build/
 
 # Generated files
 *.class
+releases/

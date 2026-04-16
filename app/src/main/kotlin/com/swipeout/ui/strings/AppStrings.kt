@@ -26,6 +26,9 @@ data class AppStrings(
     val totalFreedLabel: String,
     val filterByAlbum: String,
     val allMonths: String,
+    val sortAlphabetical: String,
+    val sortMostFiles: String,
+    val sortLeastFiles: String,
     // Month names (Jan–Dec)
     val monthNames: List<String>,
     // Review
@@ -72,6 +75,9 @@ private val PT = AppStrings(
     totalFreedLabel      = "liberados",
     filterByAlbum        = "Filtrar por álbum",
     allMonths            = "Todos os meses",
+    sortAlphabetical     = "A → Z",
+    sortMostFiles        = "Mais arquivos",
+    sortLeastFiles       = "Menos arquivos",
     monthNames           = listOf(
         "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
         "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"
@@ -94,7 +100,7 @@ private val PT = AppStrings(
     settingsTotalTitle   = "Total geral",
     settingsFilesDeleted = "arquivos apagados",
     settingsStorageFreed = "memória limpa",
-    settingsFreedSinceStart = "liberados desde o início",
+    settingsFreedSinceStart      = "liberados desde o início",
 )
 
 private val EN = AppStrings(
@@ -117,6 +123,9 @@ private val EN = AppStrings(
     totalFreedLabel      = "freed",
     filterByAlbum        = "Filter by album",
     allMonths            = "All months",
+    sortAlphabetical     = "A → Z",
+    sortMostFiles        = "Most files",
+    sortLeastFiles       = "Fewest files",
     monthNames           = listOf(
         "January","February","March","April","May","June",
         "July","August","September","October","November","December"
@@ -139,7 +148,7 @@ private val EN = AppStrings(
     settingsTotalTitle   = "Overall total",
     settingsFilesDeleted = "files deleted",
     settingsStorageFreed = "storage freed",
-    settingsFreedSinceStart = "freed since the beginning",
+    settingsFreedSinceStart      = "freed since the beginning",
 )
 
 fun resolveStrings(languagePref: String = "auto"): AppStrings {

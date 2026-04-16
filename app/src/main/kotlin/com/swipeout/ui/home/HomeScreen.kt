@@ -11,6 +11,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -52,6 +53,7 @@ fun HomeScreen(
     val albums          by vm.albums.collectAsStateWithLifecycle()
     val isSyncing       by vm.isSyncing.collectAsStateWithLifecycle()
     val totalBytesFreed by vm.totalBytesFreed.collectAsStateWithLifecycle()
+    val albumSort       by vm.albumSort.collectAsStateWithLifecycle()
     val strings         = LocalStrings.current
     val context         = LocalContext.current
 
@@ -166,6 +168,19 @@ fun HomeScreen(
             }
         }
 
+        // ── Album sort dropdown (only visible on Albums tab) ─────────────────
+        if (selectedTab == 1) {
+            AlbumSortDropdown(
+                current  = albumSort,
+                strings  = strings,
+                onSelect = { vm.setAlbumSort(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp),
+            )
+        }
+
         // ── Content — only the selected tab is rendered ───────────────────────
         PullToRefreshBox(
             isRefreshing = isSyncing,
@@ -202,10 +217,14 @@ fun HomeScreen(
                 }
                 else -> {
                     // ── ÁLBUNS ────────────────────────────────────────────────
+                    val albumListState = rememberLazyListState()
+                    LaunchedEffect(albumSort) { albumListState.scrollToItem(0) }
+
                     if (albums.isEmpty() && !isSyncing) {
                         EmptyState(strings = strings, modifier = Modifier.fillMaxSize())
                     } else {
                         LazyColumn(
+                            state               = albumListState,
                             contentPadding      = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier            = Modifier.fillMaxSize(),
@@ -394,6 +413,64 @@ private fun AlbumRow(
         }
 
         Text("›", color = TextMuted, fontSize = 22.sp)
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Album sort dropdown
+// ─────────────────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AlbumSortDropdown(
+    current: AlbumSortOrder,
+    strings: AppStrings,
+    onSelect: (AlbumSortOrder) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val label = when (current) {
+        AlbumSortOrder.ALPHA       -> strings.sortAlphabetical
+        AlbumSortOrder.MOST_FILES  -> strings.sortMostFiles
+        AlbumSortOrder.LEAST_FILES -> strings.sortLeastFiles
+    }
+
+    ExposedDropdownMenuBox(
+        expanded        = expanded,
+        onExpandedChange = { expanded = it },
+        modifier        = modifier,
+    ) {
+        Row(
+            modifier = Modifier
+                .menuAnchor(type = MenuAnchorType.PrimaryNotEditable)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Surface)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text("↕", color = TextMuted, fontSize = 13.sp)
+            Text(label, color = TextMuted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+        }
+
+        ExposedDropdownMenu(
+            expanded         = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor   = SurfaceHigh,
+        ) {
+            listOf(
+                AlbumSortOrder.ALPHA       to strings.sortAlphabetical,
+                AlbumSortOrder.MOST_FILES  to strings.sortMostFiles,
+                AlbumSortOrder.LEAST_FILES to strings.sortLeastFiles,
+            ).forEach { (order, label) ->
+                DropdownMenuItem(
+                    text    = { Text(label, color = if (current == order) Accent else TextPrimary, fontSize = 14.sp) },
+                    onClick = { onSelect(order); expanded = false },
+                )
+            }
+        }
     }
 }
 
