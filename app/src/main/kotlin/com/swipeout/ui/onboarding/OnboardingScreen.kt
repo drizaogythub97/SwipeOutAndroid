@@ -40,11 +40,21 @@ fun OnboardingScreen(
     val pagerState = rememberPagerState { 3 }
     val scope      = rememberCoroutineScope()
 
-    // Permission launcher — fired immediately on first composition
-    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-        arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
-    else
-        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    // Permission launcher — fired immediately on first composition.
+    // API 34+ includes READ_MEDIA_VISUAL_USER_SELECTED so the system offers the
+    // "selected items" option on the permission sheet.
+    val permissions = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+            )
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+            arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
+        else ->
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
 
     val permLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()

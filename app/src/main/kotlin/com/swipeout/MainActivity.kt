@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +27,13 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var userPrefs: UserPreferencesRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        // Keep splash until DataStore resolves onboarding state
+        var ready = false
+        splash.setKeepOnScreenCondition { !ready }
+
         enableEdgeToEdge()
         setContent {
             SwipeOutTheme {
@@ -41,17 +48,20 @@ class MainActivity : ComponentActivity() {
                 CompositionLocalProvider(LocalStrings provides strings) {
                     when (val seen = hasSeenOnboarding) {
                         null -> {
-                            // Brief loading state while DataStore initialises
+                            // Splash stays up (ready=false) while DataStore resolves
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .background(Background)
                             )
                         }
-                        else -> NavGraph(
-                            startDestination = if (seen) Screen.Home.route else Screen.Onboarding.route,
-                            modifier         = Modifier.fillMaxSize(),
-                        )
+                        else -> {
+                            LaunchedEffect(Unit) { ready = true }
+                            NavGraph(
+                                startDestination = if (seen) Screen.Home.route else Screen.Onboarding.route,
+                                modifier         = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
                 }
             }

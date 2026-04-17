@@ -7,6 +7,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.swipeout.data.db.entity.ImageEntity
+import com.swipeout.data.repository.DeleteResult
 import com.swipeout.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,8 @@ data class ReviewUiState(
     val isLoading: Boolean                  = false,
     val isDone: Boolean                     = false,
     val pendingDeleteSender: IntentSender?  = null,
+    // Non-zero when the OS refused to delete some files — UI surfaces it as a Toast.
+    val failedDeleteCount: Int              = 0,
 )
 
 @HiltViewModel
@@ -54,7 +57,14 @@ class ReviewViewModel @Inject constructor(
 
     fun revert(image: ImageEntity) {
         viewModelScope.launch {
-            val newDecision = if (image.decision == ImageEntity.DELETE) ImageEntity.KEEP else ImageEntity.DELETE
+            // DELETE↔KEEP toggle preserves the original Tinder-style review UX.
+            // BOOKMARK flips to PENDING so the user can re-review — it has no natural opposite.
+            val newDecision = when (image.decision) {
+                ImageEntity.DELETE   -> ImageEntity.KEEP
+                ImageEntity.KEEP     -> ImageEntity.DELETE
+                ImageEntity.BOOKMARK -> ImageEntity.PENDING
+                else                 -> return@launch
+            }
             repo.swipe(image.id, newDecision)
             loadImages()
         }
@@ -88,16 +98,25 @@ class ReviewViewModel @Inject constructor(
                     return@launch
                 }
             }
-            repo.deleteDirectly(activity, monthKey)
-            _state.value = _state.value.copy(isLoading = false, isDone = true)
+            val result = repo.deleteDirectly(activity, monthKey)
+            finishWithResult(result)
         }
     }
 
     fun onSystemDeleteConfirmed() {
         viewModelScope.launch {
-            repo.onDeleteConfirmed(monthKey)
-            _state.value = _state.value.copy(isDone = true, pendingDeleteSender = null)
+            val result = repo.onDeleteConfirmed(monthKey)
+            finishWithResult(result)
         }
+    }
+
+    private fun finishWithResult(result: DeleteResult) {
+        _state.value = _state.value.copy(
+            isLoading          = false,
+            isDone             = true,
+            pendingDeleteSender = null,
+            failedDeleteCount  = result.failed,
+        )
     }
 
     fun clearPendingSender() {

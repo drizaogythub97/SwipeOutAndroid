@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.swipeout.data.db.entity.ImageEntity
+import com.swipeout.data.repository.DeleteResult
 import com.swipeout.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,7 @@ class AlbumReviewViewModel @Inject constructor(
     savedState: SavedStateHandle,
 ) : ViewModel() {
 
-    val bucketId: Long   = checkNotNull(savedState["bucketId"])
+    val bucketId: Long    = checkNotNull(savedState["bucketId"])
     val albumName: String = savedState.get<String>("albumName") ?: ""
 
     private val _state = MutableStateFlow(ReviewUiState(isLoading = true))
@@ -51,7 +52,12 @@ class AlbumReviewViewModel @Inject constructor(
 
     fun revert(image: ImageEntity) {
         viewModelScope.launch {
-            val newDecision = if (image.decision == ImageEntity.DELETE) ImageEntity.KEEP else ImageEntity.DELETE
+            val newDecision = when (image.decision) {
+                ImageEntity.DELETE   -> ImageEntity.KEEP
+                ImageEntity.KEEP     -> ImageEntity.DELETE
+                ImageEntity.BOOKMARK -> ImageEntity.PENDING
+                else                 -> return@launch
+            }
             repo.swipe(image.id, newDecision)
             loadImages()
         }
@@ -61,7 +67,6 @@ class AlbumReviewViewModel @Inject constructor(
         if (_state.value.deletedImages.isNotEmpty()) {
             confirmDelete(activity)
         } else {
-            // Nothing to delete — just finish the album session
             _state.value = _state.value.copy(isDone = true)
         }
     }
@@ -76,16 +81,25 @@ class AlbumReviewViewModel @Inject constructor(
                     return@launch
                 }
             }
-            repo.deleteAlbumDirectly(activity, bucketId)
-            _state.value = _state.value.copy(isLoading = false, isDone = true)
+            val result = repo.deleteAlbumDirectly(activity, bucketId)
+            finishWithResult(result)
         }
     }
 
     fun onSystemDeleteConfirmed() {
         viewModelScope.launch {
-            repo.onAlbumDeleteConfirmed(bucketId)
-            _state.value = _state.value.copy(isDone = true, pendingDeleteSender = null)
+            val result = repo.onAlbumDeleteConfirmed(bucketId)
+            finishWithResult(result)
         }
+    }
+
+    private fun finishWithResult(result: DeleteResult) {
+        _state.value = _state.value.copy(
+            isLoading          = false,
+            isDone             = true,
+            pendingDeleteSender = null,
+            failedDeleteCount  = result.failed,
+        )
     }
 
     fun clearPendingSender() {

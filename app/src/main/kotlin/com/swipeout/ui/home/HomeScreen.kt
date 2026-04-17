@@ -61,14 +61,26 @@ fun HomeScreen(
     // navigating into album swipe/review and pressing back.
     var selectedTab by rememberSaveable { mutableIntStateOf(0) } // 0 = Meses, 1 = Álbuns
 
-    val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-        arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
-    else
-        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    // Android 14 (API 34) introduced READ_MEDIA_VISUAL_USER_SELECTED — partial access
+    // where the user picks a subset of photos/videos. The old `.all` check rejected this
+    // state and kept showing "grant access". Switching to `.any` means we accept any
+    // viable permission and let MediaStore surface whichever subset was granted.
+    val permissions = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
+            )
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+            arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
+        else ->
+            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
 
     val hasPermission by remember {
         derivedStateOf {
-            permissions.all { p ->
+            permissions.any { p ->
                 ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
             }
         }
@@ -318,7 +330,7 @@ private fun MonthRow(
             }
             Text(
                 text     = if (completed) "${strings.reviewed} · ${menu.totalCount} ${strings.files}"
-                           else "${menu.reviewedCount} de ${menu.totalCount} ${strings.files}",
+                           else "${menu.reviewedCount} ${strings.ofConnector} ${menu.totalCount} ${strings.files}",
                 color    = TextMuted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 2.dp),

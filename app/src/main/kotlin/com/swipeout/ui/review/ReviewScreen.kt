@@ -57,6 +57,15 @@ fun ReviewScreen(
             deleteLauncher.launch(IntentSenderRequest.Builder(sender).build())
         }
     }
+    LaunchedEffect(state.failedDeleteCount) {
+        if (state.failedDeleteCount > 0) {
+            android.widget.Toast.makeText(
+                context,
+                strings.deleteFailedMessage(state.failedDeleteCount),
+                android.widget.Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
     LaunchedEffect(state.isDone) {
         if (state.isDone) onDone()
     }
@@ -207,16 +216,23 @@ fun ReviewScreen(
                 ) {
                     Text("✕", color = TextPrimary, fontSize = 18.sp)
                 }
-                if (img.decision == ImageEntity.DELETE || img.decision == ImageEntity.KEEP) {
-                    val isDeleted = img.decision == ImageEntity.DELETE
+                // Preview revert buttons — DELETE toggles to KEEP, other decisions (KEEP
+                // and BOOKMARK) revert to PENDING so the user can re-review them.
+                val (revertLabel, revertColor) = when (img.decision) {
+                    ImageEntity.DELETE   -> "✓ ${strings.keep}"   to Keep
+                    ImageEntity.KEEP     -> "✕ ${strings.delete}" to Delete
+                    ImageEntity.BOOKMARK -> "↩ ${strings.undo}"   to Accent
+                    else                 -> null                  to Accent
+                }
+                if (revertLabel != null) {
                     Button(
                         onClick  = { vm.revert(img); previewImage = null },
-                        colors   = ButtonDefaults.buttonColors(containerColor = if (isDeleted) Keep else Delete),
+                        colors   = ButtonDefaults.buttonColors(containerColor = revertColor),
                         shape    = RoundedCornerShape(12.dp),
                         modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 40.dp),
                     ) {
                         Text(
-                            if (isDeleted) "✓ ${strings.keep}" else "✕ ${strings.delete}",
+                            revertLabel,
                             color = TextPrimary, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                         )

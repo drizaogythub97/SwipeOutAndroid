@@ -40,9 +40,11 @@ fun SwipeCard(
     onWillSwipe: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val density       = LocalDensity.current
-    val screenWidthPx = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
-    val swipeThreshold    = screenWidthPx * 0.28f
+    val density        = LocalDensity.current
+    val screenWidthPx  = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+    val swipeThresholdX  = screenWidthPx * 0.28f
+    val swipeThresholdY  = screenHeightPx * 0.18f  // Upward swipe = BOOKMARK
     val velocityThreshold = 700f
 
     // All drag state keyed to image.id — fresh for every card that reaches this slot
@@ -62,8 +64,17 @@ fun SwipeCard(
     val animOffsetY   by animateFloatAsState(targetOffsetY, animationSpec = stackSpec, label = "offsetY")
     val animAlpha     by animateFloatAsState(targetAlpha,   animationSpec = stackSpec, label = "alpha")
 
-    val strings      = LocalStrings.current
-    val overlayAlpha = (abs(offsetX) / (screenWidthPx * 0.28f)).coerceIn(0f, 1f)
+    val strings = LocalStrings.current
+
+    // Overlay selection: the dominant axis wins. Horizontal → KEEP/DELETE;
+    // upward vertical → BOOKMARK. Downward drag has no meaning so we clamp it
+    // visually further down.
+    val horizontalDominant = abs(offsetX) >= abs(offsetY)
+    val verticalUpDominant = !horizontalDominant && offsetY < 0f
+    val horizontalOverlayAlpha =
+        if (horizontalDominant) (abs(offsetX) / swipeThresholdX).coerceIn(0f, 1f) else 0f
+    val bookmarkOverlayAlpha =
+        if (verticalUpDominant) (abs(offsetY) / swipeThresholdY).coerceIn(0f, 1f) else 0f
     val rotation     = (offsetX / screenWidthPx) * 16f
     val swipingRight = offsetX > 0f
 
@@ -76,59 +87,93 @@ fun SwipeCard(
                 onDrag = { change, drag ->
                     change.consume()
                     offsetX += drag.x
-                    offsetY += drag.y * 0.20f
+                    // Track Y at 1:1 so upward drag can hit the bookmark threshold, but
+                    // clamp positive (downward) values to zero — downward has no action.
+                    offsetY = (offsetY + drag.y).coerceAtMost(0f)
                     tracker.addPosition(change.uptimeMillis, change.position)
                 },
                 onDragEnd = {
-                    val vel         = tracker.calculateVelocity()
-                    val shouldSwipe = abs(offsetX) > swipeThreshold || abs(vel.x) > velocityThreshold
+                    val vel = tracker.calculateVelocity()
                     tracker.resetTracking()
 
-                    if (shouldSwipe) {
-                        // Position decides direction when card moved ≥30px;
-                        // velocity decides for quick flicks with minimal displacement.
-                        val isRight: Boolean = when {
-                            abs(offsetX) >= 30f -> offsetX > 0f
-                            else                -> vel.x > 0f
-                        }
-                        val decision  = if (isRight) ImageEntity.KEEP else ImageEntity.DELETE
-                        val targetX   = if (isRight) screenWidthPx * 1.6f else -screenWidthPx * 1.6f
-                        val launchVel = when {
-                            abs(vel.x) > velocityThreshold -> vel.x
-                            isRight  -> maxOf(vel.x, 1500f)
-                            else     -> minOf(vel.x, -1500f)
-                        }
-                        onWillSwipe()
-                        isFlying = true
-                        scope.launch {
-                            animate(
-                                initialValue    = offsetX,
-                                targetValue     = targetX,
-                                initialVelocity = launchVel,
-                                animationSpec   = spring(
-                                    stiffness    = Spring.StiffnessMedium,
-                                    dampingRatio = Spring.DampingRatioNoBouncy,
-                                ),
-                            ) { v, _ -> offsetX = v }
-                            onSwiped(decision)
-                        }
-                    } else {
-                        scope.launch {
-                            val j1 = launch {
-                                animate(offsetX, 0f, animationSpec = spring(
-                                    stiffness    = Spring.StiffnessMedium,
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                )) { v, _ -> offsetX = v }
+                    // BOOKMARK wins when the upward vertical motion is both beyond its
+                    // threshold AND stronger than any horizontal movement. This keeps
+                    // diagonal flicks from getting misread.
+                    val bookmarkByDisplacement =
+                        offsetY <= -swipeThresholdY && abs(offsetY) > abs(offsetX)
+                    val bookmarkByVelocity =
+                        vel.y <= -velocityThreshold && abs(vel.y) > abs(vel.x)
+                    val shouldBookmark = bookmarkByDisplacement || bookmarkByVelocity
+
+                    val shouldSwipeHoriz = !shouldBookmark &&
+                        (abs(offsetX) > swipeThresholdX || abs(vel.x) > velocityThreshold)
+
+                    when {
+                        shouldBookmark -> {
+                            val targetY   = -screenHeightPx * 1.2f
+                            val launchVel = if (abs(vel.y) > velocityThreshold) vel.y else -1800f
+                            onWillSwipe()
+                            isFlying = true
+                            scope.launch {
+                                animate(
+                                    initialValue    = offsetY,
+                                    targetValue     = targetY,
+                                    initialVelocity = launchVel,
+                                    animationSpec   = spring(
+                                        stiffness    = Spring.StiffnessMedium,
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                    ),
+                                ) { v, _ -> offsetY = v }
+                                onSwiped(ImageEntity.BOOKMARK)
                             }
-                            val j2 = launch {
-                                animate(offsetY, 0f, animationSpec = spring(
-                                    stiffness    = Spring.StiffnessMedium,
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                )) { v, _ -> offsetY = v }
+                        }
+                        shouldSwipeHoriz -> {
+                            // Position decides direction when card moved ≥30px;
+                            // velocity decides for quick flicks with minimal displacement.
+                            val isRight: Boolean = when {
+                                abs(offsetX) >= 30f -> offsetX > 0f
+                                else                -> vel.x > 0f
                             }
-                            j1.join(); j2.join()
-                            // Reconnect TextureView to ExoPlayer after snap-back to unfreeze video
-                            if (image.isVideo) snapBackKey++
+                            val decision  = if (isRight) ImageEntity.KEEP else ImageEntity.DELETE
+                            val targetX   = if (isRight) screenWidthPx * 1.6f else -screenWidthPx * 1.6f
+                            val launchVel = when {
+                                abs(vel.x) > velocityThreshold -> vel.x
+                                isRight  -> maxOf(vel.x, 1500f)
+                                else     -> minOf(vel.x, -1500f)
+                            }
+                            onWillSwipe()
+                            isFlying = true
+                            scope.launch {
+                                animate(
+                                    initialValue    = offsetX,
+                                    targetValue     = targetX,
+                                    initialVelocity = launchVel,
+                                    animationSpec   = spring(
+                                        stiffness    = Spring.StiffnessMedium,
+                                        dampingRatio = Spring.DampingRatioNoBouncy,
+                                    ),
+                                ) { v, _ -> offsetX = v }
+                                onSwiped(decision)
+                            }
+                        }
+                        else -> {
+                            scope.launch {
+                                val j1 = launch {
+                                    animate(offsetX, 0f, animationSpec = spring(
+                                        stiffness    = Spring.StiffnessMedium,
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    )) { v, _ -> offsetX = v }
+                                }
+                                val j2 = launch {
+                                    animate(offsetY, 0f, animationSpec = spring(
+                                        stiffness    = Spring.StiffnessMedium,
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    )) { v, _ -> offsetY = v }
+                                }
+                                j1.join(); j2.join()
+                                // Reconnect TextureView to ExoPlayer after snap-back to unfreeze video
+                                if (image.isVideo) snapBackKey++
+                            }
                         }
                     }
                 },
@@ -189,25 +234,45 @@ fun SwipeCard(
             )
         }
 
-        // ── MANTER / DELETAR overlay ──────────────────────────────────────────
-        if (stackPosition == 0 && overlayAlpha > 0.03f) {
-            val decisionColor = if (swipingRight) Keep else Delete
-            Box(modifier = Modifier.fillMaxSize().background(decisionColor.copy(alpha = overlayAlpha * 0.25f)))
-            Box(
-                modifier = Modifier
-                    .align(if (swipingRight) Alignment.TopStart else Alignment.TopEnd)
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(decisionColor.copy(alpha = (overlayAlpha * 1.2f).coerceAtMost(1f)))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text          = if (swipingRight) strings.keep.uppercase() else strings.delete.uppercase(),
-                    color         = Color.White,
-                    fontSize      = 15.sp,
-                    fontWeight    = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                )
+        // ── Decision overlays (front card only) ───────────────────────────────
+        if (stackPosition == 0) {
+            if (horizontalOverlayAlpha > 0.03f) {
+                val decisionColor = if (swipingRight) Keep else Delete
+                Box(modifier = Modifier.fillMaxSize().background(decisionColor.copy(alpha = horizontalOverlayAlpha * 0.25f)))
+                Box(
+                    modifier = Modifier
+                        .align(if (swipingRight) Alignment.TopStart else Alignment.TopEnd)
+                        .padding(16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(decisionColor.copy(alpha = (horizontalOverlayAlpha * 1.2f).coerceAtMost(1f)))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text          = if (swipingRight) strings.keep.uppercase() else strings.delete.uppercase(),
+                        color         = Color.White,
+                        fontSize      = 15.sp,
+                        fontWeight    = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                    )
+                }
+            } else if (bookmarkOverlayAlpha > 0.03f) {
+                Box(modifier = Modifier.fillMaxSize().background(Bookmark.copy(alpha = bookmarkOverlayAlpha * 0.25f)))
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Bookmark.copy(alpha = (bookmarkOverlayAlpha * 1.2f).coerceAtMost(1f)))
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text          = "🔖 ${strings.bookmark.uppercase()}",
+                        color         = Color.White,
+                        fontSize      = 15.sp,
+                        fontWeight    = FontWeight.Bold,
+                        letterSpacing = 1.sp,
+                    )
+                }
             }
         }
 

@@ -35,6 +35,7 @@ data class AppStrings(
     val reviewChoices: String,
     val keep: String,
     val delete: String,
+    val bookmark: String,
     val later: String,
     val confirmDeletion: String,
     val confirmReview: String,
@@ -53,6 +54,9 @@ data class AppStrings(
     val settingsFilesDeleted: String,
     val settingsStorageFreed: String,
     val settingsFreedSinceStart: String,
+    // Connectors & feedback
+    val ofConnector: String,
+    val deleteFailedMessage: (Int) -> String,
 )
 
 private val PT = AppStrings(
@@ -85,6 +89,7 @@ private val PT = AppStrings(
     reviewChoices        = "Revise suas escolhas",
     keep                 = "Manter",
     delete               = "Deletar",
+    bookmark             = "Salvar",
     later                = "Depois",
     confirmDeletion      = "Confirmar exclusão",
     confirmReview        = "Confirmar revisão",
@@ -101,6 +106,11 @@ private val PT = AppStrings(
     settingsFilesDeleted = "arquivos apagados",
     settingsStorageFreed = "memória limpa",
     settingsFreedSinceStart      = "liberados desde o início",
+    ofConnector          = "de",
+    deleteFailedMessage  = { n ->
+        if (n == 1) "1 arquivo não pôde ser apagado. Ele voltou para a fila de revisão."
+        else "$n arquivos não puderam ser apagados. Eles voltaram para a fila de revisão."
+    },
 )
 
 private val EN = AppStrings(
@@ -133,6 +143,7 @@ private val EN = AppStrings(
     reviewChoices        = "Review your choices",
     keep                 = "Keep",
     delete               = "Delete",
+    bookmark             = "Save",
     later                = "Later",
     confirmDeletion      = "Confirm deletion",
     confirmReview        = "Confirm review",
@@ -149,6 +160,11 @@ private val EN = AppStrings(
     settingsFilesDeleted = "files deleted",
     settingsStorageFreed = "storage freed",
     settingsFreedSinceStart      = "freed since the beginning",
+    ofConnector          = "of",
+    deleteFailedMessage  = { n ->
+        if (n == 1) "1 file couldn't be deleted. It's back in the review queue."
+        else "$n files couldn't be deleted. They're back in the review queue."
+    },
 )
 
 fun resolveStrings(languagePref: String = "auto"): AppStrings {

@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import com.swipeout.data.db.entity.DeletionEventEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DeletionEventDao {
@@ -16,4 +17,10 @@ interface DeletionEventDao {
 
     @Query("SELECT COALESCE(SUM(bytes_freed), 0) FROM deletion_events WHERE timestamp_ms > :since")
     suspend fun totalBytesSince(since: Long): Long
+
+    @Query("SELECT COALESCE(SUM(file_count), 0) FROM deletion_events WHERE timestamp_ms > :since")
+    fun totalFilesSinceFlow(since: Long): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(bytes_freed), 0) FROM deletion_events WHERE timestamp_ms > :since")
+    fun totalBytesSinceFlow(since: Long): Flow<Long>
 }

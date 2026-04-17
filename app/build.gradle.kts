@@ -6,12 +6,20 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+import java.util.Properties
+
+// Signing config read from signing.properties (untracked). Absent = unsigned release.
+val signingProps = Properties().apply {
+    val f = rootProject.file("signing.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.swipeout"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.swipeout"
+        applicationId = "com.adrianocardoso.swipeout"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -20,10 +28,13 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            val storeFilePath = signingProps.getProperty("storeFile")
+            if (storeFilePath != null) {
+                storeFile = file(storeFilePath)
+                storePassword = signingProps.getProperty("storePassword")
+                keyAlias = signingProps.getProperty("keyAlias")
+                keyPassword = signingProps.getProperty("keyPassword")
+            }
         }
     }
 
@@ -32,7 +43,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("release")
+            if (signingProps.getProperty("storeFile") != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -74,8 +87,9 @@ dependencies {
     ksp(libs.room.compiler)
 
     implementation(libs.coil.compose)
-    implementation(libs.coil.network.okhttp)
+    implementation(libs.coil.video)
     implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.ui)

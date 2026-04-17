@@ -15,7 +15,11 @@ app/build/
 # Keystores (nunca versionar)
 *.keystore
 *.jks
+signing.properties
 
 # Generated files
 *.class
 releases/
+
+# Claude Code local config
+.claude/

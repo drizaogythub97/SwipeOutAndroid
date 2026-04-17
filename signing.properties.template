@@ -1,0 +1,18 @@
+# Template para assinatura de release.
+# Copie para `signing.properties` na raiz do projeto e preencha com os valores da sua keystore.
+# NUNCA comite `signing.properties` — ele já está no .gitignore.
+#
+# Para criar a keystore pelo Android Studio:
+#   1. Build > Generate Signed App Bundle / APK...
+#   2. Escolha "APK", clique em "Create new..."
+#   3. Salve o .jks fora do repo (ex.: C:/Users/<you>/keystores/swipeout-release.jks)
+#   4. Anote os 4 campos abaixo.
+#
+# Depois de preencher, rode:
+#   ./gradlew.bat :app:assembleRelease
+# e o APK assinado sai em app/build/outputs/apk/release/app-release.apk
+
+storeFile=C:/caminho/absoluto/para/swipeout-release.jks
+storePassword=SUA_STORE_PASSWORD
+keyAlias=swipeout
+keyPassword=SUA_KEY_PASSWORD

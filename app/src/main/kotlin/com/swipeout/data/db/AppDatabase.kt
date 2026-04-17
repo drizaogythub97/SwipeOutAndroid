@@ -38,11 +38,11 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
 val MIGRATION_2_3 = object : Migration(2, 3) {
     override fun migrate(database: SupportSQLiteDatabase) {
         // Check existing columns before adding — prevents crash if migration runs twice
-        val cursor = database.query("PRAGMA table_info(images)")
         val existingCols = mutableSetOf<String>()
-        val nameIdx = cursor.getColumnIndex("name")
-        while (cursor.moveToNext()) existingCols += cursor.getString(nameIdx)
-        cursor.close()
+        database.query("PRAGMA table_info(images)").use { cursor ->
+            val nameIdx = cursor.getColumnIndex("name")
+            while (cursor.moveToNext()) existingCols += cursor.getString(nameIdx)
+        }
 
         if ("bucket_id" !in existingCols)
             database.execSQL("ALTER TABLE images ADD COLUMN bucket_id INTEGER NOT NULL DEFAULT 0")

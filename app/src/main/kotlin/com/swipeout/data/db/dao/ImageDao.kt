@@ -19,6 +19,17 @@ interface ImageDao {
     @Query("SELECT id FROM images WHERE month_key = :monthKey")
     suspend fun getIdsInMonth(monthKey: String): List<Long>
 
+    /** Returns the subset of [ids] that still exist in the table — used to detect failed deletions. */
+    @Query("SELECT id FROM images WHERE id IN (:ids)")
+    suspend fun getExistingIds(ids: List<Long>): List<Long>
+
+    @Query("SELECT MAX(date_added) FROM images")
+    suspend fun getMaxDateAdded(): Long?
+
+    /** Cheap existence check for the legacy backfill branch. */
+    @Query("SELECT EXISTS(SELECT 1 FROM images WHERE bucket_id = 0)")
+    suspend fun hasMissingBucketInfo(): Boolean
+
     // Prefers image files over videos for the cover — videos can't be thumbnailed by Coil directly
     @Query("""
         SELECT content_uri FROM images

@@ -43,11 +43,15 @@ class HomeViewModel @Inject constructor(
     fun setAlbumSort(order: AlbumSortOrder) { _albumSort.value = order }
 
     fun sync() {
-        if (_isSyncing.value) return
+        // compareAndSet avoids a TOCTOU race where two rapid triggers (pull-to-refresh
+        // + onResume, for example) both pass the guard before either flips it.
+        if (!_isSyncing.compareAndSet(expect = false, update = true)) return
         viewModelScope.launch {
-            _isSyncing.value = true
-            runCatching { repo.sync() }
-            _isSyncing.value = false
+            try {
+                runCatching { repo.sync() }
+            } finally {
+                _isSyncing.value = false
+            }
         }
     }
 }

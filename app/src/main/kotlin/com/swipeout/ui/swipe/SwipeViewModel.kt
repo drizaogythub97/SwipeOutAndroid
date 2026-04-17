@@ -59,17 +59,25 @@ class SwipeViewModel @Inject constructor(
         .map { it.isNotEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    fun swipe(imageId: Long, decision: String) {
-        val image = pendingImages.value?.firstOrNull { it.id == imageId }
-        if (image != null) {
-            _swipeHistory.update { history ->
-                history + LastSwipe(
-                    image     = image,
-                    fromRight = decision == ImageEntity.KEEP,
-                )
-            }
+    /**
+     * Records the swipe and updates Room. Takes the full [ImageEntity] (not just an id)
+     * because the UI already holds the entity — looking it up from [pendingImages] races
+     * with Room emissions and occasionally returned null under rapid swiping.
+     */
+    fun swipe(image: ImageEntity, decision: String) {
+        _swipeHistory.update { history ->
+            val next = history + LastSwipe(
+                image     = image,
+                fromRight = decision == ImageEntity.KEEP,
+            )
+            // Cap undo history — long review sessions would otherwise retain every card
+            // in memory. 50 is far beyond any realistic undo chain.
+            if (next.size > HISTORY_LIMIT) next.takeLast(HISTORY_LIMIT) else next
         }
-        viewModelScope.launch { repo.swipe(imageId, decision) }
+        viewModelScope.launch {
+            repo.swipe(image.id, decision)
+            repo.refreshMenus()
+        }
     }
 
     fun undo() {
@@ -77,6 +85,13 @@ class SwipeViewModel @Inject constructor(
         if (history.isEmpty()) return
         val last = history.last()
         _swipeHistory.update { it.dropLast(1) }
-        viewModelScope.launch { repo.swipe(last.image.id, ImageEntity.PENDING) }
+        viewModelScope.launch {
+            repo.swipe(last.image.id, ImageEntity.PENDING)
+            repo.refreshMenus()
+        }
+    }
+
+    private companion object {
+        const val HISTORY_LIMIT = 50
     }
 }

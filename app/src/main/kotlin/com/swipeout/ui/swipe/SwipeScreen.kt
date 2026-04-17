@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.ImageLoader
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import com.swipeout.data.db.entity.ImageEntity
@@ -57,13 +57,14 @@ fun SwipeScreen(
         if (allDone) onReview()
     }
 
-    // Prefetch next cards when top changes
+    // Prefetch next cards when top changes. Uses the singleton ImageLoader so
+    // prefetched bitmaps land in the same cache AsyncImage reads from —
+    // creating ad-hoc ImageLoader(context) instances bypassed that cache.
     val topId = pending?.firstOrNull()?.id
     LaunchedEffect(topId) {
+        val loader = SingletonImageLoader.get(context)
         pending?.drop(1)?.take(5)?.forEach { img ->
-            ImageLoader(context).enqueue(
-                ImageRequest.Builder(context).data(img.contentUri).build()
-            )
+            loader.enqueue(ImageRequest.Builder(context).data(img.contentUri).build())
         }
     }
 
@@ -127,12 +128,11 @@ fun SwipeScreen(
                     SwipeCard(
                         image         = image,
                         stackPosition = stackPos,
-                        onSwiped      = { decision -> vm.swipe(image.id, decision) },
+                        onSwiped      = { decision -> vm.swipe(image, decision) },
                         onWillSwipe   = {
+                            val loader = SingletonImageLoader.get(context)
                             pending?.drop(2)?.take(5)?.forEach { img ->
-                                ImageLoader(context).enqueue(
-                                    ImageRequest.Builder(context).data(img.contentUri).build()
-                                )
+                                loader.enqueue(ImageRequest.Builder(context).data(img.contentUri).build())
                             }
                         },
                         modifier = Modifier
@@ -194,13 +194,13 @@ fun SwipeScreen(
         ) {
             val top = safeList.firstOrNull()
             RoundActionButton(label = "✕", color = Delete,   bgAlpha = 0.15f, size = 64.dp) {
-                top?.let { vm.swipe(it.id, ImageEntity.DELETE) }
+                top?.let { vm.swipe(it, ImageEntity.DELETE) }
             }
             RoundActionButton(label = "🔖", color = Bookmark, bgAlpha = 0.15f, size = 52.dp) {
-                top?.let { vm.swipe(it.id, ImageEntity.BOOKMARK) }
+                top?.let { vm.swipe(it, ImageEntity.BOOKMARK) }
             }
             RoundActionButton(label = "✓", color = Keep,     bgAlpha = 0.15f, size = 64.dp) {
-                top?.let { vm.swipe(it.id, ImageEntity.KEEP) }
+                top?.let { vm.swipe(it, ImageEntity.KEEP) }
             }
         }
     }
