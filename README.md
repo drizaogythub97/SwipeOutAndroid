@@ -23,6 +23,18 @@ O app é **100% offline** e **dark mode only** — sem telemetria, sem conta, se
 
 ---
 
+## Download
+
+<div align="center">
+
+[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0.0-7B6FFF?style=for-the-badge&logo=android&logoColor=white)](https://github.com/drizaogythub97/SwipeOutAndroid/releases/download/v.1.0.0/SwipeOut-v1.0.0.apk)
+
+> Requer Android 8.0 ou superior. Pode ser necessário habilitar "Instalar de fontes desconhecidas" nas configurações do dispositivo.
+
+</div>
+
+---
+
 ## Screenshots e Demonstração
 
 <p align="center">
@@ -172,7 +184,7 @@ Grid de decisões (keep/delete separados) com preview fullscreen. Botão de conf
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/seu-usuario/SwipeOutAndroid.git
+git clone https://github.com/drizaogythub97/SwipeOutAndroid.git
 cd SwipeOutAndroid
 
 # 2. Abra no Android Studio ou rode via Gradle
